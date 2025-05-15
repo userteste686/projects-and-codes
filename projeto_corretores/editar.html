@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Corretor</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Obtém os parâmetros da URL (ID, CPF, Creci e Nome)
+            const urlParams = new URLSearchParams(window.location.search);
+            document.getElementById("id").value = urlParams.get("id");
+            document.getElementById("cpf").value = urlParams.get("cpf");
+            document.getElementById("creci").value = urlParams.get("creci");
+            document.getElementById("nome").value = urlParams.get("nome");
+        });
+    </script>
+</head>
+<body>
+    <h2>Editar Corretor</h2>
+    <form action="atualizar.php" method="POST">
+        <input type="hidden" id="id" name="id">
+
+        <label>CPF:</label>
+        <input type="text" id="cpf" name="cpf" required>
+
+        <label>Creci:</label>
+        <input type="text" id="creci" name="creci" required>
+
+        <label>Nome:</label>
+        <input type="text" id="nome" name="nome" required>
+
+        <button type="submit">Salvar Alterações</button>
+    </form>
+
+    <a href="index.html">Cancelar</a>
+</body>
+</html>
