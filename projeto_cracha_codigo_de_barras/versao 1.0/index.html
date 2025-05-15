@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Ponto Digital</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script defer src="script.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Cabeçalho -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-fingerprint"></i>
+                <h1>Registro de Ponto</h1>
+            </div>
+            <div class="clock-container">
+                <i class="far fa-clock"></i>
+                <div>
+                    <div id="currentTime" class="time-display"></div>
+                    <div id="currentDate" class="date-display"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Conteúdo Principal -->
+        <main class="main-content">
+            <!-- Seção de Registro -->
+            <section class="registration-section">
+                <div class="card">
+                    <h2><i class="fas fa-clock"></i> Registrar Ponto</h2>
+                    
+                    <form id="pontoForm" action="process.php" method="POST">
+                        <div class="form-group">
+                            <label for="cracha"><i class="fas fa-id-card"></i> Número do Crachá:</label>
+                            <div class="input-with-button">
+                                <input type="text" id="cracha" name="cracha" required placeholder="Digite ou escaneie o número">
+                                <button type="button" id="abrirCamera" class="scan-button">
+                                    <i class="fas fa-camera"></i> Escanear
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tipo"><i class="fas fa-exchange-alt"></i> Tipo de Registro:</label>
+                            <select id="tipo" name="tipo" required>
+                                <option value="" disabled selected>Selecione o tipo</option>
+                                <option value="Entrada">Entrada</option>
+                                <option value="Saida">Saída</option>
+                                <option value="Intervalo">Intervalo</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="submit-button">
+                            <i class="fas fa-check-circle"></i> Registrar Ponto
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Seção de Histórico -->
+            <section class="history-section">
+                <div class="card">
+                    <h2><i class="fas fa-history"></i> Histórico de Registros</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th><i class="fas fa-id-card"></i> Crachá</th>
+                                    <th><i class="fas fa-exchange-alt"></i> Tipo</th>
+                                    <th><i class="fas fa-clock"></i> Horário</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaRegistros">
+                                <!-- Registros serão carregados dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Janela da Câmera (hidden by default) -->
+        <div id="cameraContainer" class="camera-modal">
+            <div class="camera-content">
+                <h3><i class="fas fa-camera"></i> Posicione o código de barras na área destacada</h3>
+                
+                <div class="scanner-container">
+                    <div class="quagga-overlay">
+                        <div class="viewport">
+                            <video id="camera" autoplay playsinline></video>
+                            <div class="scan-box"></div>
+                            <div class="scan-line"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="button" id="fecharCamera" class="close-camera">
+                    <i class="fas fa-times"></i> Fechar Câmera
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rodapé -->
+    <footer class="app-footer">
+        <p>Sistema de Registro de Ponto Digital &copy; <span id="currentYear"></span></p>
+    </footer>
+
+    
+    <script>
+        // Relógio digital
+        function updateClock() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                const dateString = now.toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                });
+                
+                document.getElementById("currentTime").textContent = timeString;
+                document.getElementById("currentDate").textContent = dateString;
+            }
+        
+        // Ano atual no footer
+        document.getElementById("currentYear").textContent = new Date().getFullYear();
+        
+        // Inicializa e atualiza o relógio a cada segundo
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        class BarcodeScanner {
+            constructor() {
+              // Armazenamento dos códigos válidos
+              this.validCodes = new Set();
+              this.lastValidCode = null;
+              this.scanCooldown = 2000; // 2 segundos entre leituras
+          
+              // Elementos DOM
+              this.crachaInput = document.getElementById('cracha');
+              this.cameraContainer = document.getElementById('cameraContainer');
+              this.videoElement = document.getElementById('camera');
+              
+              // Configurações do scanner
+              this.quaggaConfig = {
+                inputStream: {
+                  name: "Live",
+                  type: "LiveStream",
+                  target: this.videoElement,
+                  constraints: {
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 },
+                    facingMode: "environment"
+                  }
+                },
+                decoder: {
+                  readers: ["code_128_reader"],
+                  debug: { drawBoundingBox: false }
+                },
+                locate: false // Desativa localização para melhor performance
+              };
+          
+              this.init();
+            }
+          
+            init() {
+              document.getElementById('abrirCamera').addEventListener('click', () => this.start());
+              document.getElementById('fecharCamera').addEventListener('click', () => this.stop());
+            }
+          
+            async start() {
+              try {
+                this.cameraContainer.style.display = 'flex';
+                
+                // Inicia a câmera
+                const stream = await navigator.mediaDevices.getUserMedia(
+                  this.quaggaConfig.inputStream.constraints
+                );
+                this.videoElement.srcObject = stream;
+          
+                // Inicia o Quagga
+                await this.initQuagga();
+                
+              } catch (error) {
+                console.error("Erro ao iniciar scanner:", error);
+                this.showError("Não foi possível acessar a câmera");
+                this.stop();
+              }
+            }
+          
+            async initQuagga() {
+              return new Promise((resolve, reject) => {
+                Quagga.init(this.quaggaConfig, (err) => {
+                  if (err) return reject(err);
+                  
+                  Quagga.onDetected(this.processCode.bind(this));
+                  Quagga.start();
+                  resolve();
+                });
+              });
+            }
+          
+            processCode(result) {
+              const code = result.codeResult.code;
+              const now = Date.now();
+          
+              // Validação do código
+              if (this.isValidCode(code, now)) {
+                this.lastValidCode = { code, timestamp: now };
+                this.validCodes.add(code);
+                
+                // Atualiza o campo e fecha a câmera
+                this.crachaInput.value = code;
+                this.showSuccessFeedback(code);
+                setTimeout(() => this.stop(), 800);
+              }
+            }
+          
+            isValidCode(code, timestamp) {
+              // Verifica se é um código válido (não vazio e numérico)
+              if (!code || !/^\d+$/.test(code)) return false;
+              
+              // Verifica se é um código novo ou se passou o tempo de cooldown
+              const isNewCode = !this.validCodes.has(code);
+              const isAfterCooldown = !this.lastValidCode || 
+                (timestamp - this.lastValidCode.timestamp) > this.scanCooldown;
+              
+              return isNewCode || isAfterCooldown;
+            }
+          
+            stop() {
+              // Para o scanner e a câmera
+              if (Quagga) {
+                Quagga.offDetected();
+                Quagga.stop();
+              }
+              
+              if (this.videoElement.srcObject) {
+                this.videoElement.srcObject.getTracks().forEach(track => track.stop());
+                this.videoElement.srcObject = null;
+              }
+              
+              this.cameraContainer.style.display = 'none';
+            }
+          
+            showSuccessFeedback(code) {
+              const feedback = document.createElement('div');
+              feedback.className = 'scan-feedback success';
+              feedback.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <p>Crachá registrado: <strong>${code}</strong></p>
+              `;
+              document.body.appendChild(feedback);
+              setTimeout(() => feedback.remove(), 2000);
+            }
+          
+            showError(message) {
+              const error = document.createElement('div');
+              error.className = 'scan-feedback error';
+              error.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>${message}</p>
+              `;
+              document.body.appendChild(error);
+              setTimeout(() => error.remove(), 3000);
+            }
+          }
+          
+          // Inicializa quando o DOM estiver pronto
+          document.addEventListener('DOMContentLoaded', () => {
+            const scanner = new BarcodeScanner();
+            
+            // Inicializa o relógio
+            initializeClock();
+            
+            // Carrega registros periodicamente
+            setInterval(loadRecords, 15000);
+            loadRecords();
+          });
+          
+          function loadRecords() {
+            fetch('listar.php')
+              .then(r => r.text())
+              .then(html => {
+                document.getElementById('tabelaRegistros').innerHTML = html;
+              })
+              .catch(err => console.error('Erro ao carregar registros:', err));
+          }
+          
+          function initializeClock() {
+            function updateClock() {
+              const now = new Date();
+              document.getElementById('currentTime').textContent = 
+                now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              document.getElementById('currentDate').textContent = 
+                now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+          }
+    </script>
+</body>
+</html>

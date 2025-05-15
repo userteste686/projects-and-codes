@@ -1,0 +1,16 @@
+VERSÃO 2.0
+
+essa versão contem;
+
+1 - conexão com DB, é inser
+
+2 - acesso a camera
+
+3 - display de historico de ponto
+
+
+
+
+
+
+

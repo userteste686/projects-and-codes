@@ -1,0 +1,10 @@
+versão 1.0
+
+versão 1.0 contem:
+
+1 - conexão com DB
+
+2 - acesso a camera
+
+3 - display de historico de ponto
+
